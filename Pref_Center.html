@@ -7,7 +7,6 @@ SET @SubscriberKey = RequestParameter("ContactKey")
 
 /* Look up preferences from Service Cloud */
 
-set @lookupAccountId = Lookup("Account_Salesforce","Id","PersonContactId",@SubscriberKey)
 set @subscriberRows = RetrieveSalesforceObjects("Account","Unsubscribe_Promo__c,Unsubscribe_Newsletter__c,PersonHasOptedOutOfEmail","PersonContactId","=",@SubscriberKey)
 
 /* Set variables from Service Cloud */
