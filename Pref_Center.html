@@ -1,0 +1,276 @@
+<!--
+%%[
+var @email, @SubscriberKey, @Promo, @Newsletter, @EmailUnsub, @status, @updateRecord
+
+SET @email = RequestParameter("email")
+SET @SubscriberKey = RequestParameter("ContactKey")
+
+/* Look up preferences from Service Cloud */
+
+set @lookupAccountId = Lookup("Account_Salesforce","Id","PersonContactId",@SubscriberKey)
+set @subscriberRows = RetrieveSalesforceObjects("Account","Unsubscribe_Promo__c,Unsubscribe_Newsletter__c,PersonHasOptedOutOfEmail","PersonContactId","=",@SubscriberKey)
+
+/* Set variables from Service Cloud */
+
+IF RowCount(@subscriberRows) == 1 then
+  SET @subscriberRow = Row(@subscriberRows, 1)
+  SET @SportInfo = Field(@subscriberRow, "Unsubscribe_Promo__c")
+  SET @SportPromo = Field(@subscriberRow, "Unsubscribe_Newsletter__c")
+  SET @EmailUnsub = Field(@subscriberRow, "PersonHasOptedOutOfEmail")
+ENDIF
+
+]%%
+-->
+<script language="javascript" runat="server">
+    Platform.Load('core', '1');
+
+    var SubscriberKey = Variable.GetValue('@SubscriberKey');
+
+    // get Account Id
+    var accountId = Platform.Function.Lookup('Account_Salesforce', 'Id', 'PersonContactId', SubscriberKey);
+
+    // init List
+    var allSubscribersList = List.Init('All Subscribers - 1659');
+    if (Request.Method == 'POST') {
+        var unsubscribe = Request.GetFormField('unsubscribe');
+
+        if(unsubscribe == 1) {
+            // update List
+            try {
+                allSubscribersList.Subscribers.Update({
+                    SubscriberKey: SubscriberKey
+                },'Unsubscribed')
+            } catch (e) {
+                Write("<br>e: " + Stringify(e));
+            }
+            var ContactSF_DE = DataExtension.Init("Contact_SF");
+          ContactSF_DE.Rows.Update({'Unsubscribe_Promo__c':'1',
+                                    'Unsubscribe_Newsletter__c':'1',
+                                    'HasOptedOutOfEmail':'1'}, ['ContactKey'], [SubscriberKey]);
+            // update CRM
+            if(accountId) {
+                var result = updateSF(accountId, [
+                    'Unsubscribe_Promo__c', 1,
+                    'Unsubscribe_Newsletter__c', 1,
+                    'PersonHasOptedOutOfEmail', 1
+                ]);
+            }
+        } else {
+            // update List
+            try {
+                allSubscribersList.Subscribers.Update({
+                    SubscriberKey: SubscriberKey
+                },'Active')
+            } catch (e) {
+                Write("<br>e: " + Stringify(e));
+            }
+
+            // update CRM
+          var result = updateSF(accountId, [
+                'Unsubscribe_Promo__c',  Request.GetFormField('Promo') ==  1 ? '0' : '1',
+                'Unsubscribe_Newsletter__c', Request.GetFormField('Newsletter') == 1 ? '0' : '1',
+                'PersonHasOptedOutOfEmail', 0
+            ]);
+          var ContactSF_DE = DataExtension.Init("Contact_SF");
+          ContactSF_DE.Rows.Update({'Unsubscribe_Promo__c':Request.GetFormField('Promo') ==  1 ? '0' : '1',
+                                    'Unsubscribe_Newsletter__c':Request.GetFormField('Newsletter') == 1 ? '0' : '1', ['ContactKey'], [SubscriberKey]);
+        }
+    }
+  /**
+     * Update SF Object
+     * @param SubscriberKey
+     * @param data
+     * @returns {number}
+     */
+    function updateSF(SubscriberKey, data) {
+
+        var results = 0;
+
+        var fieldArr = data;
+
+        var updateSFObject = "";
+        updateSFObject += "\%\%[ ";
+        updateSFObject += "set @SFUpdateResults = UpdateSingleSalesforceObject('Account',";
+        updateSFObject += "'" + SubscriberKey + "','"+  fieldArr.join("','") + "'";
+        updateSFObject += ") ";
+        updateSFObject += "output(concat(@SFUpdateResults)) ";
+        updateSFObject += "]\%\%";
+
+        try {
+            results = Platform.Function.TreatAsContent(updateSFObject);
+        } catch (e2) {
+            if (debug) {
+                Write("<br>e2: " + Stringify(e2));
+            }
+        }
+
+        return results
+       }
+</script>
+
+<!DOCTYPE html>
+<html>
+<head lang="ru-RU">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Profile Center</title>
+    <link href="https://www.parimatch.ru/img/favicon.ico" rel="shortcut icon" type="image/x-icon">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+ <style>
+   .is-success {
+  display:hidden;
+}
+ .lds-ellipsis {
+  display: inline-block;
+  position: relative;
+  width: 80px;
+  height: 20px;
+}
+.lds-ellipsis div {
+  position: absolute;
+  top: 5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #000000;
+  animation-timing-function: cubic-bezier(0, 1, 1, 0);
+}
+.lds-ellipsis div:nth-child(1) {
+  left: 8px;
+  animation: lds-ellipsis1 0.6s infinite;
+}
+   
+.lds-ellipsis div:nth-child(2) {
+  left: 8px;
+  animation: lds-ellipsis2 0.6s infinite;
+}
+.lds-ellipsis div:nth-child(3) {
+  left: 32px;
+  animation: lds-ellipsis2 0.6s infinite;
+}
+.lds-ellipsis div:nth-child(4) {
+  left: 56px;
+  animation: lds-ellipsis3 0.6s infinite;
+}
+@keyframes lds-ellipsis1 {
+  0% {
+    transform: scale(0);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes lds-ellipsis3 {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0);
+  }
+}
+@keyframes lds-ellipsis2 {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(24px, 0);
+  }
+}
+ 
+ </style>
+  
+  </head>
+
+<body>
+
+<div>
+    <header>
+        <div>
+            <div>
+                <div><img src="https://vectorlogoseek.com/wp-content/uploads/2019/01/dentsu-isobar-vector-logo.png" alt="Isobar" style="height:80px;"></div>
+            </div>
+        </div>
+    </header>
+    <main class="c-main" role="main">
+        <section class="c-section c-section-home" id="home">
+            <div class="o-container">
+                <div class="home__content">
+                    <form action="%%=RequestParameter('PAGEURL')=%%" id="form-unsubscribe" class="c-form" method="post">
+                        <div class="c-form__main">
+                            <div class="home__title">Preference Center</div>
+                            <div class="c-form__group">
+                                <div class="c-form__label">Uncheck to unsubscribe:</div>
+                                <div class="c-form__field">
+                                    <div class="field-ckeckbox">
+                                        <input type="checkbox" style="font-family:sans-serif;" id="category-1" name="Newsletter" value="1" %%[if @Newsletter=='false' or empty(@Newsletter) then]%% checked="checked" %%[else]%%   %%[endif]%%>
+                                        <label for="category-1">Newsletter</label>
+                                    </div>
+                                </div>
+                              <div class="c-form__field">
+                                    <div class="field-ckeckbox">
+                      <input type="checkbox" id="category-5" name="Promo" value="1" %%[if @Promo=='false' or empty(@Promo) then]%% checked="checked"  %%[else]%% %%[endif]%%>
+                                        <label for="category-5">Promo</label>
+                                    </div>
+                                </div>
+                            </div>
+                          <div class="c-form__label">You are subscribed to all checked categories</div>
+                            <div class="c-form__footer">
+                                <button type="submit" class="js-save c-btn c-btn__small" id="button-save"><span class="c-btn__text" id="button-save-text">Save changes</span></button>
+                            </div>
+                        </div>
+                      
+                        <div class="c-form__success">
+                            <div class="c-form__success-title">Saved</div>
+                            <div class="c-form__success-btn">
+                                <a href="http://isobar.com/" target="_blank" class="c-btn c-btn__small"><span class="c-btn__text">Go to Isobar.com</span></a>
+                            </div>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script src="https://cloud.bet.parimatch.com/vendor1.js"></script>
+<script src="https://cloud.bet.parimatch.com/bundle1.js"></script>
+
+<script type="text/javascript">
+    $(document).on('click', '.js-save', function (e) {
+        
+        var element, name, arr;
+        element = document.getElementById("button-save-text");
+        element.innerHTML = "<div class=\"lds-ellipsis\"><div></div><div></div><div></div><div></div></div>"
+        
+        e.preventDefault();
+
+        var form = $('#form-unsubscribe');
+        var url = form.attr('action');
+
+        var isUnsubscribe = $(this).val();
+
+        if(form.find('input[type="checkbox"]:checked').length === 0) {
+            isUnsubscribe = 1;
+        }
+
+        var data = form.serializeArray();
+        if(isUnsubscribe) {
+            data.push({
+                name: 'unsubscribe',
+                value: 1,
+            })
+        }
+
+        $.ajax({
+            type: "POST",
+            url: url,
+            data: $.param(data),
+            success: function(data) {
+                form.addClass('is-success');
+            }
+        });
+    })
+</script>
+</body>
+</html>
