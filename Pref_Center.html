@@ -13,8 +13,8 @@ set @subscriberRows = RetrieveSalesforceObjects("Account","Unsubscribe_Promo__c,
 
 IF RowCount(@subscriberRows) == 1 then
   SET @subscriberRow = Row(@subscriberRows, 1)
-  SET @SportInfo = Field(@subscriberRow, "Unsubscribe_Promo__c")
-  SET @SportPromo = Field(@subscriberRow, "Unsubscribe_Newsletter__c")
+  SET @Promo = Field(@subscriberRow, "Unsubscribe_Promo__c")
+  SET @Newsletter = Field(@subscriberRow, "Unsubscribe_Newsletter__c")
   SET @EmailUnsub = Field(@subscriberRow, "PersonHasOptedOutOfEmail")
 ENDIF
 
